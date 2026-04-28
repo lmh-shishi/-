@@ -140,3 +140,64 @@ public:
             cout << "未找到该地点：" << name << endl;
         }
     }
+ // 2. 列出所有可查询的地点
+    void listAllPlaces() {
+        cout << "\n===== 校园所有地点列表 =====" << endl;
+        for (int i = 0; i < placeCount; i++) {
+            cout << "- " << campusPlaces[i].name << endl;
+        }
+        cout << "===========================\n" << endl;
+    }
+
+    // 3. 查询两点间最短路径与预计时间（Dijkstra + 栈回溯）
+    void queryShortestPath(const string& startName, const string& endName) {
+        int startId = getPlaceIdByName(startName);
+        int endId = getPlaceIdByName(endName);
+        if (startId == -1 || endId == -1) {
+            cout << "起点或终点不存在！" << endl;
+            return;
+        }
+        if (startId == endId) {
+            cout << "起点与终点相同，无需导航。" << endl;
+            return;
+        }
+        int dist[MAX_PLACES];    // 最短距离
+        int timeCost[MAX_PLACES];// 最短时间
+        int prev[MAX_PLACES];    // 前驱节点（用于回溯路径）
+        bool visited[MAX_PLACES] = {false};
+
+        for (int i = 0; i < placeCount; i++) {
+            dist[i] = INT_MAX;
+            timeCost[i] = INT_MAX;
+            prev[i] = -1;
+        }
+        dist[startId] = 0;
+        timeCost[startId] = 0;
+        for (int i = 0; i < placeCount; i++) {
+            // 找未访问的距离最小节点
+            int u = -1;
+            int minDist = INT_MAX;
+            for (int j = 0; j < placeCount; j++) {
+                if (!visited[j] && dist[j] < minDist) {
+                    minDist = dist[j];
+                    u = j;
+                }
+            }
+            if (u == -1) break;
+            visited[u] = true;
+
+            for (int k = 0; k < adj[u].edgeCount; k++) {
+                Edge e = adj[u].edges[k];
+                int v = e.toId;
+                if (!visited[v] && dist[u] != INT_MAX && dist[v] > dist[u] + e.distance) {
+                    dist[v] = dist[u] + e.distance;
+                    timeCost[v] = timeCost[u] + e.time;
+                    prev[v] = u;
+                }
+            }
+        }
+
+        if (dist[endId] == INT_MAX) {
+            cout << "两点之间无连通路径！" << endl;
+            return;
+        }
