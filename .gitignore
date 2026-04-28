@@ -1,55 +1,83 @@
-# Prerequisites
-*.d
+#include <iostream>
+#include <string>
+#include <climits>
+using namespace std;
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+// 坐标点结构体
+struct Point {
+    int x;
+    int y;
+};
 
-# Linker output
-*.ilk
-*.map
-*.exp
+// 地点信息结构体：名称 + 坐标 + 编号
+struct Place {
+    string name;
+    Point p;
+    int id; // 内部编号，方便邻接表索引
+};
 
-# Precompiled Headers
-*.gch
-*.pch
+// 边结构体：目标地点id、距离、预计时间
+struct Edge {
+    int toId;
+    int distance; // 距离（米）
+    int time;     // 预计时间（秒）
+};
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+// 邻接表：每个地点的边列表（用固定大小数组模拟）
+struct AdjList {
+    Edge edges[20]; // 每个地点最多20条边
+    int edgeCount;
+};
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+// 栈结构体：用于路径回溯（数组模拟栈）
+struct Stack {
+    int data[50];
+    int top;
+    Stack() : top(-1) {}
+    bool isEmpty() { return top == -1; }
+    void push(int val) { if (top < 49) data[++top] = val; }
+    int pop() { return data[top--]; }
+};
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+// 校园导航系统类（无STL版本）
+class CampusQuerySystem {
+private:
+    static const int MAX_PLACES = 50;
+    Place campusPlaces[MAX_PLACES];
+    AdjList adj[MAX_PLACES]; // 邻接表
+    int placeCount;
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+    // 根据名称找地点id
+    int getPlaceIdByName(const string& name) {
+        for (int i = 0; i < placeCount; i++) {
+            if (campusPlaces[i].name == name)
+                return i;
+        }
+        return -1;
+    }
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+public:
+    void initCampus() {
+        placeCount = 0;
+        // 1. 添加所有地点
+        addPlace("校门(北1)", {45, 60});
+        addPlace("校门(北2)", {140, 25});
+        addPlace("弘义楼西", {-1, 35});
+        addPlace("明德楼", {-13, 30});
+        addPlace("明善楼", {38, 5});
+        addPlace("致远楼", {15, 20});
+        addPlace("弘义楼", {25, 32});
+        addPlace("弘义楼东", {45, 25});
+        addPlace("明理楼", {-15, 20});
+        addPlace("图书馆", {0, 0});
+        addPlace("明志楼", {40, 15});
+        addPlace("球类活动中心", {60, 0});
+        addPlace("旭日餐厅", {90, 30});
+        addPlace("医务室", {105, 15});
+        addPlace("体育场", {90, -25});
+        addPlace("看台", {75, -30});
+        addPlace("羽毛球场", {110, -20});
+        addPlace("1A1B宿舍楼", {120, 20});
+        addPlace("2A2B宿舍楼", {140, -25});
+        addPlace("3A3B宿舍楼", {175, -40});
 
-# debug information files
-*.dwo
