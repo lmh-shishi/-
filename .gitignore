@@ -201,3 +201,69 @@ public:
             cout << "两点之间无连通路径！" << endl;
             return;
         }
+ // 用栈回溯路径
+        Stack pathStack;
+        int cur = endId;
+        while (cur != -1) {
+            pathStack.push(cur);
+            cur = prev[cur];
+        }
+        cout << "\n===== 最短路径信息 =====" << endl;
+        cout << "起点：" << startName << endl;
+        cout << "终点：" << endName << endl;
+        cout << "最短距离：" << dist[endId] << " 米" << endl;
+        cout << "预计通过时间：" << timeCost[endId] << " 秒" << endl;
+        cout << "路径：";
+        while (!pathStack.isEmpty()) {
+            int id = pathStack.pop();
+            cout << campusPlaces[id].name;
+            if (id != endId) cout << " -> ";
+        }
+        cout << "\n========================\n" << endl;
+    }
+};
+int main(){   
+    CampusQuerySystem system;
+    system.initCampus();
+
+    int choice;
+    do {
+        cout << "\n===== 电子科技大学成都学院（什邡校区）地点查询系统 =====" << endl;
+        cout << "1. 列出所有地点" << endl;
+        cout << "2. 根据地点查询坐标" << endl;
+        cout << "3. 查询两点间最短路径与预计时间" << endl;
+        cout << "0. 退出系统" << endl;
+        cout << "请输入你的选择：";
+        cin >> choice;
+        cin.ignore(); 
+
+        switch (choice) {
+            case 1:
+                system.listAllPlaces();
+                break;
+            case 2: {
+                string name;
+                cout << "请输入地点名称：";
+                getline(cin, name);
+                system.queryCoordinateByName(name);
+                break;
+            }
+            case 3: {
+                string start, end;
+                cout << "请输入起点名称：";
+                getline(cin, start);
+                cout << "请输入终点名称：";
+                getline(cin, end);
+                system.queryShortestPath(start, end);
+                break;
+            }
+            case 0:
+                cout << "退出系统，感谢使用！" << endl;
+                break;
+            default:
+                cout << "无效选择，请重新输入！" << endl;
+        }
+    } while (choice != 0);
+
+    return 0;
+}
