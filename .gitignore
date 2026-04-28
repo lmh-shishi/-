@@ -80,4 +80,63 @@ public:
         addPlace("1A1B宿舍楼", {120, 20});
         addPlace("2A2B宿舍楼", {140, -25});
         addPlace("3A3B宿舍楼", {175, -40});
+ // 2. 初始化邻接表边（示例：手动设置部分路径，可按实际地图补充）
+        addEdge("校门(北1)", "弘义楼", 50, 60);
+        addEdge("校门(北1)", "明志楼", 30, 40);
+        addEdge("弘义楼", "弘义楼东", 20, 25);
+        addEdge("弘义楼", "致远楼", 35, 45);
+        addEdge("明志楼", "球类活动中心", 25, 30);
+        addEdge("球类活动中心", "旭日餐厅", 40, 50);
+        addEdge("旭日餐厅", "医务室", 20, 25);
+        addEdge("医务室", "体育场", 30, 40);
+        addEdge("体育场", "看台", 15, 20);
+        addEdge("看台", "羽毛球场", 20, 25);
+        addEdge("羽毛球场", "1A1B宿舍楼", 15, 20);
+        addEdge("1A1B宿舍楼", "2A2B宿舍楼", 25, 30);
+        addEdge("2A2B宿舍楼", "3A3B宿舍楼", 35, 45);
+        addEdge("弘义楼西", "明德楼", 15, 20);
+        addEdge("明德楼", "明理楼", 20, 25);
+        addEdge("明理楼", "图书馆", 25, 30);
+        addEdge("图书馆", "致远楼", 30, 40);
+        addEdge("致远楼", "明善楼", 20, 25);
+        addEdge("明善楼", "弘义楼", 35, 45);
+    }
 
+    // 添加地点
+    void addPlace(const string& name, Point p) {
+        if (placeCount < MAX_PLACES) {
+            campusPlaces[placeCount].name = name;
+            campusPlaces[placeCount].p = p;
+            campusPlaces[placeCount].id = placeCount;
+            adj[placeCount].edgeCount = 0;
+            placeCount++;
+        }
+    }
+
+    // 添加双向边（无向图）
+    void addEdge(const string& from, const string& to, int dist, int t) {
+        int fromId = getPlaceIdByName(from);
+        int toId = getPlaceIdByName(to);
+        if (fromId == -1 || toId == -1) return;
+
+        // 正向边
+        if (adj[fromId].edgeCount < 20) {
+            adj[fromId].edges[adj[fromId].edgeCount++] = {toId, dist, t};
+        }
+        // 反向边
+        if (adj[toId].edgeCount < 20) {
+            adj[toId].edges[adj[toId].edgeCount++] = {fromId, dist, t};
+        }
+    }
+
+    // 1. 根据地点名查询坐标
+    void queryCoordinateByName(const string& name) {
+        int id = getPlaceIdByName(name);
+        if (id != -1) {
+            Point p = campusPlaces[id].p;
+            cout << "地点：" << name << endl;
+            cout << "坐标：(" << p.x << ", " << p.y << ")" << endl;
+        } else {
+            cout << "未找到该地点：" << name << endl;
+        }
+    }
