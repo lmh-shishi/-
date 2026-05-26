@@ -3,6 +3,8 @@
 #include <climits>
 using namespace std;
 
+const int MAX_PLACES=50;
+
 // 坐标点结构体
 struct Point {
     int x;
@@ -20,20 +22,25 @@ struct Place {
 struct Edge {
     int toId;
     int distance; // 距离（米）
-    int time;     // 预计时间（秒）
+    int time; 
+    bool isSheltered;
+    int congestionLevel// 预计时间（秒）
 };
 
 // 邻接表：每个地点的边列表（用固定大小数组模拟）
 struct AdjList {
     Edge edges[20]; // 每个地点最多20条边
     int edgeCount;
+    AdjList():edgeCount(0){}
 };
 
 // 栈结构体：用于路径回溯（数组模拟栈）
-struct Stack {
-    int data[50];
-    int top;
-    Stack() : top(-1) {}
+class Stack {
+private:
+    int data[100];
+    int topIdx;
+public:
+    Stack() : topIdx(-1) {}
     bool isEmpty() { return top == -1; }
     void push(int val) { if (top < 49) data[++top] = val; }
     int pop() { return data[top--]; }
@@ -46,6 +53,12 @@ private:
     Place campusPlaces[MAX_PLACES];
     AdjList adj[MAX_PLACES]; // 邻接表
     int placeCount;
+
+     static const int CONGESTION_PENALTY[4];
+    static const int RAIN_PENALTY;
+    bool isRainMode;       // 雨天避雨模式
+    bool avoidCongestMode; // 避堵模式
+
 
     // 根据名称找地点id
     int getPlaceIdByName(const string& name) {
@@ -161,16 +174,19 @@ public:
             cout << "起点与终点相同，无需导航。" << endl;
             return;
         }
+        int totalCost[MAX_PLACES];
         int dist[MAX_PLACES];    // 最短距离
         int timeCost[MAX_PLACES];// 最短时间
         int prev[MAX_PLACES];    // 前驱节点（用于回溯路径）
         bool visited[MAX_PLACES] = {false};
 
         for (int i = 0; i < placeCount; i++) {
+            totalCost[i]=INT_MAX;
             dist[i] = INT_MAX;
             timeCost[i] = INT_MAX;
             prev[i] = -1;
         }
+        totalCost[s]=0;
         dist[startId] = 0;
         timeCost[startId] = 0;
         for (int i = 0; i < placeCount; i++) {
@@ -186,13 +202,28 @@ public:
             if (u == -1) break;
             visited[u] = true;
 
-            for (int k = 0; k < adj[u].edgeCount; k++) {
-                Edge e = adj[u].edges[k];
-                int v = e.toId;
-                if (!visited[v] && dist[u] != INT_MAX && dist[v] > dist[u] + e.distance) {
-                    dist[v] = dist[u] + e.distance;
-                    timeCost[v] = timeCost[u] + e.time;
-                    prev[v] = u;
+            for (int k = 0; k < adj[u].edgeCount; ++k)
+            {
+                Edge eg = adj[u].edges[k];
+                int v = eg.toId;
+                if (vis[v] || totalCost[u] == INT_MAX) continue;
+
+                // 计算单条路段综合代价
+                int nowCost = eg.time;
+                // 叠加拥堵惩罚
+                if (avoidCongestMode)
+                    nowCost += CONGESTION_PENALTY[eg.congestionLevel];
+                // 叠加雨天无遮蔽惩罚
+                if (isRainMode && !eg.isSheltered)
+                    nowCost += RAIN_PENALTY;
+
+                // 松弛更新
+                if (totalCost[v] > totalCost[u] + nowCost)
+                {
+                    totalCost[v] = totalCost[u] + nowCost;
+                    dist[v] = dist[u] + eg.distance;
+                    baseTime[v] = baseTime[u] + eg.time;
+                    pre[v] = u;
                 }
             }
         }
@@ -211,8 +242,14 @@ public:
         cout << "\n===== 最短路径信息 =====" << endl;
         cout << "起点：" << startName << endl;
         cout << "终点：" << endName << endl;
+        cout << ”运行模式：“;
+        if (isRainMode) cout << ”雨天避雨 “;
+        if (avoidCongestMode) cout << ”开启避堵“;
+        if (!isRainMode && !avoidCongestMode) cout << ”普通导航“;
+        cout << ”\n“;
         cout << "最短距离：" << dist[endId] << " 米" << endl;
         cout << "预计通过时间：" << timeCost[endId] << " 秒" << endl;
+        cout << ”综合耗时(含避堵/避雨)：“ << totalCost[e] << ” 秒\n“;
         cout << "路径：";
         while (!pathStack.isEmpty()) {
             int id = pathStack.pop();
@@ -221,7 +258,32 @@ public:
         }
         cout << "\n========================\n" << endl;
     }
+    void initCampus()
+    {
+        // 1. 添加地点(名称, x坐标, y坐标)
+        addPlace(“北校门”, 10, 20);
+        addPlace(“弘义楼”, 30, 25);
+        addPlace(“致远楼”, 50, 30);
+        addPlace(“食堂”, 20, 50);
+        addPlace(“体育场”, 60, 60);
+        addPlace(“医务室”, 40, 45);
+
+        // 2. 添加道路：起点,终点,距离,基础时间,是否有遮蔽,拥堵等级
+        // 格式：addRoad(起点,终点,距离,时间,是否遮蔽,拥堵等级)
+        addRoad(“北校门”, “弘义楼”, 50, 60, true, 0);
+        addRoad(“弘义楼”, “致远楼”, 35, 45, false, 1);
+        addRoad(“弘义楼”, “食堂”, 40, 50, true, 0);
+        addRoad(“致远楼”, “医务室”, 30, 40, false, 2);
+        addRoad(“食堂”, “医务室”, 25, 35, true, 1);
+        addRoad(“医务室”, “体育场”, 30, 40, true, 2);
+        addRoad(“致远楼”, “体育场”, 45, 55, false, 3);
+    }
 };
+
+// 静态常量初始化
+const int CampusSystem::CONGESTION_PENALTY[4] = {0, 10, 25, 50};
+const int CampusSystem::RAIN_PENALTY = 30;
+
 int main(){   
     CampusQuerySystem system;
     system.initCampus();
@@ -232,6 +294,7 @@ int main(){
         cout << "1. 列出所有地点" << endl;
         cout << "2. 根据地点查询坐标" << endl;
         cout << "3. 查询两点间最短路径与预计时间" << endl;
+        cout << ”4. 开始智能路径导航\n“;
         cout << "0. 退出系统" << endl;
         cout << "请输入你的选择：";
         cin >> choice;
@@ -255,6 +318,17 @@ int main(){
                 cout << "请输入终点名称：";
                 getline(cin, end);
                 system.queryShortestPath(start, end);
+                break;
+            }
+            case 4:
+            {
+                int rain, congest;
+                cout << ”是否开启【雨天避雨】(0关闭 1开启)：“;
+                cin >> rain;
+                cout << ”是否开启【智能避堵】(0关闭 1开启)：“;
+                cin >> congest;
+                sys.setNavMode(rain == 1, congest == 1);
+                cout << ”导航模式设置完成！\n“;
                 break;
             }
             case 0:
