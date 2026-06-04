@@ -24,7 +24,7 @@ struct Edge {
     int distance; // 距离（米）
     int time; 
     bool isSheltered;
-    int congestionLevel// 预计时间（秒）
+    int congestionLevel;// 预计时间（秒）
 };
 struct BSTNode{
     string name;    //地点名称（检索关键字）
@@ -74,9 +74,9 @@ private:
     int topIdx;
 public:
     Stack() : topIdx(-1) {}
-    bool isEmpty() { return top == -1; }
-    void push(int val) { if (top < 49) data[++top] = val; }
-    int pop() { return data[top--]; }
+    bool isEmpty() { return topIdx == -1; }
+    void push(int val) { if (topIdx < 49) data[++topIdx] = val; }
+    int pop() { return data[topIdx--]; }
 };
 
 // 校园导航系统类
@@ -87,7 +87,7 @@ private:
     AdjList adj[MAX_PLACES]; // 邻接表
     int placeCount;
 
-     static const int CONGESTION_PENALTY[4];
+    static const int CONGESTION_PENALTY[4];
     static const int RAIN_PENALTY;
     bool isRainMode;       // 雨天避雨模式
     bool avoidCongestMode; // 避堵模式
@@ -102,6 +102,7 @@ private:
         return -1;
     }
 public:
+    void findFacilityByTree();
     void initCampus() {
         placeBSTRoot=nullptr;
         placeCount = 0;
@@ -294,14 +295,14 @@ public:
         cout << "\n===== 最短路径信息 =====" << endl;
         cout << "起点：" << startName << endl;
         cout << "终点：" << endName << endl;
-        cout << ”运行模式：“;
-        if (isRainMode) cout << ”雨天避雨 “;
-        if (avoidCongestMode) cout << ”开启避堵“;
-        if (!isRainMode && !avoidCongestMode) cout << ”普通导航“;
-        cout << ”\n“;
+        cout << "运行模式：";
+        if (isRainMode) cout << "雨天避雨 ";
+        if (avoidCongestMode) cout << "开启避堵";
+        if (!isRainMode && !avoidCongestMode) cout << "普通导航";
+        cout << "\n";
         cout << "最短距离：" << dist[endId] << " 米" << endl;
         cout << "预计通过时间：" << timeCost[endId] << " 秒" << endl;
-        cout << ”综合耗时(含避堵/避雨)：“ << totalCost[e] << ” 秒\n“;
+        cout << "综合耗时(含避堵/避雨)："<< totalCost[e] << " 秒\n";
         cout << "路径：";
         while (!pathStack.isEmpty()) {
             int id = pathStack.pop();
@@ -309,28 +310,28 @@ public:
             if (id != endId) cout << " -> ";
         }
         cout << "\n========================\n" << endl;
-    }
+    };
     void initCampus()
     {
         // 1. 添加地点(名称, x坐标, y坐标)
-        addPlace(“北校门”, 10, 20);
-        addPlace(“弘义楼”, 30, 25);
-        addPlace(“致远楼”, 50, 30);
-        addPlace(“食堂”, 20, 50);
-        addPlace(“体育场”, 60, 60);
-        addPlace(“医务室”, 40, 45);
+        addPlace("北校门", 10, 20);
+        addPlace("弘义楼", 30, 25);
+        addPlace("致远楼", 50, 30);
+        addPlace("食堂", 20, 50);
+        addPlace("体育场", 60, 60);
+        addPlace("医务室", 40, 45);
 
         // 2. 添加道路：起点,终点,距离,基础时间,是否有遮蔽,拥堵等级
         // 格式：addRoad(起点,终点,距离,时间,是否遮蔽,拥堵等级)
-        addRoad(“北校门”, “弘义楼”, 50, 60, true, 0);
-        addRoad(“弘义楼”, “致远楼”, 35, 45, false, 1);
-        addRoad(“弘义楼”, “食堂”, 40, 50, true, 0);
-        addRoad(“致远楼”, “医务室”, 30, 40, false, 2);
-        addRoad(“食堂”, “医务室”, 25, 35, true, 1);
-        addRoad(“医务室”, “体育场”, 30, 40, true, 2);
-        addRoad(“致远楼”, “体育场”, 45, 55, false, 3);
+        addRoad("北校门", "弘义楼", 50, 60, true, 0);
+        addRoad("弘义楼", "致远楼", 35, 45, false, 1);
+        addRoad("弘义楼", "食堂", 40, 50, true, 0);
+        addRoad("致远楼", "医务室", 30, 40, false, 2);
+        addRoad("食堂", "医务室", 25, 35, true, 1);
+        addRoad("医务室", "体育场", 30, 40, true, 2);
+        addRoad("致远楼", "体育场", 45, 55, false, 3);
     }
-};
+}
 
 // 静态常量初始化
 const int CampusSystem::CONGESTION_PENALTY[4] = {0, 10, 25, 50};
@@ -376,16 +377,16 @@ int main(){
             case 4:
             {
                 int rain, congest;
-                cout << ”是否开启【雨天避雨】(0关闭 1开启)：“;
+                cout << "是否开启【雨天避雨】(0关闭 1开启)：";
                 cin >> rain;
-                cout << ”是否开启【智能避堵】(0关闭 1开启)：“;
+                cout << "是否开启【智能避堵】(0关闭 1开启)：";
                 cin >> congest;
-                sys.setNavMode(rain == 1, congest == 1);
-                cout << ”导航模式设置完成！\n“;
+                system.setNavMode(rain == 1, congest == 1);
+                cout << "导航模式设置完成！\n";
                 break;
             }
             case 5:
-               system,findFacilityByTree();
+               system.findFacilityByTree();
                break;
             case 0:
                 cout << "退出系统，感谢使用！" << endl;
