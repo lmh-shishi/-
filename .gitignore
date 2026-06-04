@@ -26,7 +26,40 @@ struct Edge {
     bool isSheltered;
     int congestionLevel// 预计时间（秒）
 };
-
+struct BSTNode{
+    string name;    //地点名称（检索关键字）
+    int placeId;    //对应地点ID，关联原有地点信息
+    BSTNode *lchild,*rchild; //左右孩子
+    //构造初始化
+    BSTNode(string n,int id):name(n),placeId(id),lchild(nullptr),rchild(nullptr){}
+};
+//二叉排序树：插入结点
+bool bstInsert(BSTNode* &root,const string &name,int pid){
+    if(root==nullptr){
+        root=new BSTNode(name,pid);
+        return true;
+    }
+    //字典序比较，左小右大（BST规则）
+    if(name==root->name) return false;//重名不插入
+    else if(name<root->name) bstInsert(root->lchild,name,pid);
+    else bstInsert(root->rchild,name,pid);
+    return true;
+}
+//二叉排序树：精准查找设施（一键搜索），返回地点ID，找不到-1
+int bstSearch(BSTNode* root,const string &key){
+    if(root==nullptr) return -1;
+    if(key==root->name) return root->placeId;
+    else if(key<root->name) return bstSearch(root->lchild,key);
+    else return bstSearch(root->rchild,key);
+}
+//二叉树销毁（防止内存泄漏，可选）
+void bstDestroy(BSTNode* &root){
+    if(root==nullptr)return;
+    bstDestroy(root->lchild);
+    bstDestroy(root->rchild);
+    delete root;
+    root=nullptr;
+}
 // 邻接表：每个地点的边列表（用固定大小数组模拟）
 struct AdjList {
     Edge edges[20]; // 每个地点最多20条边
@@ -46,7 +79,7 @@ public:
     int pop() { return data[top--]; }
 };
 
-// 校园导航系统类（无STL版本）
+// 校园导航系统类
 class CampusQuerySystem {
 private:
     static const int MAX_PLACES = 50;
@@ -58,7 +91,7 @@ private:
     static const int RAIN_PENALTY;
     bool isRainMode;       // 雨天避雨模式
     bool avoidCongestMode; // 避堵模式
-
+    BSTNode *placeBSTRoot; //存储全部地点的二叉排序树根
 
     // 根据名称找地点id
     int getPlaceIdByName(const string& name) {
@@ -68,9 +101,9 @@ private:
         }
         return -1;
     }
-
 public:
     void initCampus() {
+        placeBSTRoot=nullptr;
         placeCount = 0;
         // 1. 添加所有地点
         addPlace("校门(北1)", {45, 60});
@@ -123,6 +156,7 @@ public:
             campusPlaces[placeCount].id = placeCount;
             adj[placeCount].edgeCount = 0;
             placeCount++;
+            bstlnsert(placeBSTRoot,name,placeCount-1);
         }
     }
 
@@ -161,8 +195,26 @@ public:
         }
         cout << "===========================\n" << endl;
     }
+   
+    //3.一键查找
+    void findFacilityByTree(){
+    string findName;
+    cout<<"\n====二叉树一键设施查询===="<<endl;
+    cout<<"请输入要查找的设施名称：";
+    getline(cin,findName);
+    int findId=bstSearch(placeBSTRoot,findName);
+    if(findId==-1){
+        cout<<"未查询到该设施！"<<endl;
+        return;
+    }
+    //查到后打印该设施全部信息
+    Place res=campusPlaces[findId];
+    cout<<"【查找成功】设施名称："<<res.name<<endl;
+    cout<<"坐标：("<<res.p.x<<","<<res.p.y<<")"<<endl;
+    cout<<"内部编号："<<res.id<<endl;
+    cout<<"=========================\n";
 
-    // 3. 查询两点间最短路径与预计时间（Dijkstra + 栈回溯）
+    // 4. 查询两点间最短路径与预计时间（Dijkstra + 栈回溯）
     void queryShortestPath(const string& startName, const string& endName) {
         int startId = getPlaceIdByName(startName);
         int endId = getPlaceIdByName(endName);
@@ -294,7 +346,8 @@ int main(){
         cout << "1. 列出所有地点" << endl;
         cout << "2. 根据地点查询坐标" << endl;
         cout << "3. 查询两点间最短路径与预计时间" << endl;
-        cout << ”4. 开始智能路径导航\n“;
+        cout << ”4. 开始智能路径导航\n“ <<endl;
+        cout<<"5.二叉树一键查找设施" <<endl;
         cout << "0. 退出系统" << endl;
         cout << "请输入你的选择：";
         cin >> choice;
@@ -331,6 +384,9 @@ int main(){
                 cout << ”导航模式设置完成！\n“;
                 break;
             }
+            case 5:
+               system,findFacilityByTree();
+               break;
             case 0:
                 cout << "退出系统，感谢使用！" << endl;
                 break;
