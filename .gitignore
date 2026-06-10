@@ -27,6 +27,63 @@ struct BSTNode{
     BSTNode *lchild,*rchild; 
     BSTNode(string n,int id):name(n),placeId(id),lchild(nullptr),rchild(nullptr){}
 };
+const int MAX_CHILD = 10;  // 每个分类最多10个子节点
+ struct ClassifyNode {
+     string className;                // 分类名称
+     int placeIds[MAX_PLACES];        // 该分类下的地点ID集合
+     int placeCnt;                    // 当前分类下地点数量
+     ClassifyNode* child[MAX_CHILD];  // 子分类节点
+     int childCnt;                    // 子分类数量
+     ClassifyNode(string cName) : className(cName), placeCnt(0), childCnt(0) {
+         for (int i = 0; i < MAX_PLACES; i++) placeIds[i] = -1;
+         for (int i = 0; i < MAX_CHILD; i++) child[i] = nullptr;
+     }
+ };
+ // 分类树：添加子分类
+ void addClassifyChild(ClassifyNode* parent, ClassifyNode* childNode) {
+     if (parent->childCnt < MAX_CHILD) {
+         parent->child[parent->childCnt++] = childNode;
+     }
+ }
+ // 分类树：给分类添加地点ID
+ void addPlaceToClassify(ClassifyNode* node, int placeId) {
+     if (node->placeCnt < MAX_PLACES) {
+         node->placeIds[node->placeCnt++] = placeId;
+     }
+ }
+ // 分类树：递归遍历，展示全部分类及下属地点
+ void traverseClassifyTree(ClassifyNode* root, Place campusPlaces[]) {
+     if (root == nullptr) return;
+     cout << "【" << root->className << "】" << endl;
+     // 输出当前分类下的地点
+     for (int i = 0; i < root->placeCnt; i++) {
+         int pid = root->placeIds[i];
+         cout << "   · " << campusPlaces[pid].name << endl;
+     }
+     // 递归遍历子分类
+     for (int i = 0; i < root->childCnt; i++) {
+         traverseClassifyTree(root->child[i], campusPlaces);
+     }
+ }
+ // 分类树：根据分类名称查找分类节点
+ ClassifyNode* searchClassify(ClassifyNode* root, const string& clsName) {
+     if (root == nullptr) return nullptr;
+     if (root->className == clsName) return root;
+     // 遍历子节点查找
+     for (int i = 0; i < root->childCnt; i++) {
+         ClassifyNode* res = searchClassify(root->child[i], clsName);
+         if (res != nullptr) return res;
+     }
+     return nullptr;
+ }
+ // 销毁分类树（释放内存）
+ void destroyClassifyTree(ClassifyNode* root) {
+     if (root == nullptr) return;
+     for (int i = 0; i < root->childCnt; i++) {
+         destroyClassifyTree(root->child[i]);
+     }
+     delete root;
+ }
 //二叉排序树：插入结点
 bool bstInsert(BSTNode* &root,const string &name,int pid){
     if(root==nullptr){
@@ -205,6 +262,31 @@ public:
     cout<<"内部编号："<<res.id<<endl;
     cout<<"=========================\n";
 }
+  // 1. 遍历展示全部分类及下属设施
+     void showAllClassify() {
+         cout << "\n===== 校园设施分类索引（分类树遍历）=====" << endl;
+         traverseClassifyTree(classifyRoot, campusPlaces);
+         cout << "=======================================\n" << endl;
+     }
+     // 2. 根据分类名称检索该分类下所有设施
+     void searchByClassify() {
+         string clsName;
+         cout << "\n===== 按分类检索设施 =====" << endl;
+         cout << "请输入分类名称(校门区域/教学楼/宿舍楼/运动场地/餐饮区域/医疗办公)：";
+         getline(cin, clsName);
+         ClassifyNode* clsNode = searchClassify(classifyRoot, clsName);
+         if (clsNode == nullptr) {
+             cout << "不存在该分类！" << endl;
+             return;
+         }
+         cout << "【" << clsName << "】下的所有设施：" << endl;
+         for (int i = 0; i < clsNode->placeCnt; i++) {
+             int pid = clsNode->placeIds[i];
+             cout << "   · " << campusPlaces[pid].name
+                  << "  坐标(" << campusPlaces[pid].p.x << "," << campusPlaces[pid].p.y << ")" << endl;
+         }
+         cout << "==========================\n";
+     }
     void queryShortestPath(const string& startName, const string& endName) {
         int startId = getPlaceIdByName(startName);
         int endId = getPlaceIdByName(endName);
