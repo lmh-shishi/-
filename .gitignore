@@ -8,6 +8,8 @@ const int MAX_PLACES=50;
 struct Point {
     int x;
     int y;
+    bool isExit;      
+    bool isDanger;
 };
 struct Place {
     string name;
@@ -20,6 +22,9 @@ struct Edge {
     int time; 
     bool isSheltered;
     int congestionLevel;
+    Edge() : toId(-1), distance(0), time(0), isSheltered(false), congestionLevel(0) {}
+    Edge(int t, int d, int ti, bool sh = false, int con = 0)
+        : toId(t), distance(d), time(ti), isSheltered(sh), congestionLevel(con) {}
 };
 struct BSTNode{
     string name;   
@@ -27,31 +32,28 @@ struct BSTNode{
     BSTNode *lchild,*rchild; 
     BSTNode(string n,int id):name(n),placeId(id),lchild(nullptr),rchild(nullptr){}
 };
-const int MAX_CHILD = 10;  // 每个分类最多10个子节点
+const int MAX_CHILD = 10;
  struct ClassifyNode {
-     string className;                // 分类名称
-     int placeIds[MAX_PLACES];        // 该分类下的地点ID集合
-     int placeCnt;                    // 当前分类下地点数量
-     ClassifyNode* child[MAX_CHILD];  // 子分类节点
-     int childCnt;                    // 子分类数量
+     string className;
+     int placeIds[MAX_PLACES];
+     int placeCnt;
+     ClassifyNode* child[MAX_CHILD];
+     int childCnt;
      ClassifyNode(string cName) : className(cName), placeCnt(0), childCnt(0) {
          for (int i = 0; i < MAX_PLACES; i++) placeIds[i] = -1;
          for (int i = 0; i < MAX_CHILD; i++) child[i] = nullptr;
      }
  };
- // 分类树：添加子分类
  void addClassifyChild(ClassifyNode* parent, ClassifyNode* childNode) {
      if (parent->childCnt < MAX_CHILD) {
          parent->child[parent->childCnt++] = childNode;
      }
  }
- // 分类树：给分类添加地点ID
  void addPlaceToClassify(ClassifyNode* node, int placeId) {
      if (node->placeCnt < MAX_PLACES) {
          node->placeIds[node->placeCnt++] = placeId;
      }
  }
- // 分类树：递归遍历，展示全部分类及下属地点
  void traverseClassifyTree(ClassifyNode* root, Place campusPlaces[]) {
      if (root == nullptr) return;
      cout << "【" << root->className << "】" << endl;
@@ -60,23 +62,19 @@ const int MAX_CHILD = 10;  // 每个分类最多10个子节点
          int pid = root->placeIds[i];
          cout << "   · " << campusPlaces[pid].name << endl;
      }
-     // 递归遍历子分类
      for (int i = 0; i < root->childCnt; i++) {
          traverseClassifyTree(root->child[i], campusPlaces);
      }
  }
- // 分类树：根据分类名称查找分类节点
  ClassifyNode* searchClassify(ClassifyNode* root, const string& clsName) {
      if (root == nullptr) return nullptr;
      if (root->className == clsName) return root;
-     // 遍历子节点查找
      for (int i = 0; i < root->childCnt; i++) {
          ClassifyNode* res = searchClassify(root->child[i], clsName);
          if (res != nullptr) return res;
      }
      return nullptr;
  }
- // 销毁分类树（释放内存）
  void destroyClassifyTree(ClassifyNode* root) {
      if (root == nullptr) return;
      for (int i = 0; i < root->childCnt; i++) {
@@ -84,7 +82,6 @@ const int MAX_CHILD = 10;  // 每个分类最多10个子节点
      }
      delete root;
  }
-//二叉排序树：插入结点
 bool bstInsert(BSTNode* &root,const string &name,int pid){
     if(root==nullptr){
         root=new BSTNode(name,pid);
@@ -95,14 +92,12 @@ bool bstInsert(BSTNode* &root,const string &name,int pid){
     else bstInsert(root->rchild,name,pid);
     return true;
 }
-//二叉排序树：精准查找设施（一键搜索），返回地点ID，找不到-1
 int bstSearch(BSTNode* root,const string &key){
     if(root==nullptr) return -1;
     if(key==root->name) return root->placeId;
     else if(key<root->name) return bstSearch(root->lchild,key);
     else return bstSearch(root->rchild,key);
 }
-//二叉树销毁（防止内存泄漏，可选）
 void bstDestroy(BSTNode* &root){
     if(root==nullptr)return;
     bstDestroy(root->lchild);
@@ -115,7 +110,6 @@ struct AdjList {
     int edgeCount;
     AdjList():edgeCount(0){}
 };
-
 class Stack {
 private:
     int data[100];
@@ -126,19 +120,21 @@ public:
     void push(int val) { if (topIdx < 49) data[++topIdx] = val; }
     int pop() { return data[topIdx--]; }
 };
-
 class CampusQuerySystem {
 private:
     static const int MAX_PLACES = 50;
     Place campusPlaces[MAX_PLACES];
-    AdjList adj[MAX_PLACES]; // 邻接表
+    AdjList adj[MAX_PLACES];
     int placeCount;
+    ClassifyNode* classifyRoot;
+    BSTNode *placeBSTRoot;
 
     static const int CONGESTION_PENALTY[4];
     static const int RAIN_PENALTY;
     bool isRainMode;    
     bool avoidCongestMode; 
     BSTNode *placeBSTRoot; 
+
     int getPlaceIdByName(const string& name) {
         for (int i = 0; i < placeCount; i++) {
             if (campusPlaces[i].name == name)
@@ -146,37 +142,100 @@ private:
         }
         return -1;
     }
+
+    bool bfsEvacuate(int startId, int& exitId, int prev[]) {
+        bool visited[MAX_PLACES] = {false};
+        queue<int> q;
+        memset(prev, -1, sizeof(int) * MAX_PLACES);
+
+        q.push(startId);
+        visited[startId] = true;
+
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+
+            if (campusPlaces[u].isExit) {
+                exitId = u;
+                return true;
+            }
+
+            for (int i = 0; i < adj[u].edgeCount; i++) {
+                int v = adj[u].edges[i].toId;
+                if (!visited[v] && !campusPlaces[v].isDanger) {
+                    visited[v] = true;
+                    prev[v] = u;
+                    q.push(v);
+                }
+            }
+        }
+        return false; 
+    }
+
 public:
+    CampusQuerySystem() {
+        classifyRoot = nullptr;
+        placeBSTRoot = nullptr;
+        placeCount = 0;
+        isRainMode = false;
+        avoidCongestMode = false;
+    }
+
+    ~CampusQuerySystem() {
+        destroyBST();
+        destroyClassifyTree(classifyRoot);
+    }
+
 	void setNavMode(bool rain, bool congest)
 	{
 	    isRainMode = rain;
 	    avoidCongestMode = congest;
 	}
+
+    void addPlace(const string& name, Point p, bool isExit = false, bool isDanger = false) {
+        if (placeCount >= MAX_PLACES) return;
+        campusPlaces[placeCount].name = name;
+        campusPlaces[placeCount].p = p;
+        campusPlaces[placeCount].id = placeCount;
+        campusPlaces[placeCount].isExit = isExit;
+        campusPlaces[placeCount].isDanger = isDanger;
+        adj[placeCount].edgeCount = 0;
+        bstInsert(placeBSTRoot, name, placeCount);
+        placeCount++;
+    }
+
+    void addEdge(const string& from, const string& to, int dist, int t, bool shelter = false, int congest = 0) {
+        int fromId = getPlaceIdByName(from);
+        int toId = getPlaceIdByName(to);
+        if (fromId == -1 || toId == -1) return;
+
+        if (adj[fromId].edgeCount < 20)
+            adj[fromId].edges[adj[fromId].edgeCount++] = Edge(toId, dist, t, shelter, congest);
+        if (adj[toId].edgeCount < 20)
+            adj[toId].edges[adj[toId].edgeCount++] = Edge(fromId, dist, t, shelter, congest);
+    }
     void initCampus() {
-        placeBSTRoot=nullptr;
-        placeCount = 0;
-        // 1. 添加所有地点
-        addPlace("校门(北1)", {45, 60});
-        addPlace("校门(北2)", {140, 25});
-        addPlace("弘义楼西", {-1, 35});
-        addPlace("明德楼", {-13, 30});
-        addPlace("明善楼", {38, 5});
-        addPlace("致远楼", {15, 20});
-        addPlace("弘义楼", {25, 32});
-        addPlace("弘义楼东", {45, 25});
-        addPlace("明理楼", {-15, 20});
-        addPlace("图书馆", {0, 0});
-        addPlace("明志楼", {40, 15});
-        addPlace("球类活动中心", {60, 0});
-        addPlace("旭日餐厅", {90, 30});
-        addPlace("医务室", {105, 15});
-        addPlace("体育场", {90, -25});
-        addPlace("看台", {75, -30});
-        addPlace("羽毛球场", {110, -20});
-        addPlace("1A1B宿舍楼", {120, 20});
-        addPlace("2A2B宿舍楼", {140, -25});
-        addPlace("3A3B宿舍楼", {175, -40});
- // 2. 初始化邻接表边（示例：手动设置部分路径，可按实际地图补充）
+        addPlace("校门(北1)", {45, 60}, true, false);   
+        addPlace("校门(北2)", {140, 25}, true, false);  
+        addPlace("弘义楼西", {-1, 35}, false, false);
+        addPlace("明德楼", {-13, 30}, false, false);
+        addPlace("明善楼", {38, 5}, false, false);
+        addPlace("致远楼", {15, 20}, false, false);
+        addPlace("弘义楼", {25, 32}, false, true);   
+        addPlace("弘义楼东", {45, 25}, false, false);
+        addPlace("明理楼", {-15, 20}, false, false);
+        addPlace("图书馆", {0, 0}, false, false);
+        addPlace("明志楼", {40, 15}, false, false);
+        addPlace("球类活动中心", {60, 0}, false, false);
+        addPlace("旭日餐厅", {90, 30}, false, false);
+        addPlace("医务室", {105, 15}, false, false);
+        addPlace("体育场", {90, -25}, false, false);
+        addPlace("看台", {75, -30}, false, false);
+        addPlace("羽毛球场", {110, -20}, false, false);
+        addPlace("1A1B宿舍楼", {120, 20}, false, false);
+        addPlace("2A2B宿舍楼", {140, -25}, false, false);
+        addPlace("3A3B宿舍楼", {175, -40}, false, false);
+
         addEdge("校门(北1)", "弘义楼", 50, 60);
         addEdge("校门(北1)", "明志楼", 30, 40);
         addEdge("弘义楼", "弘义楼东", 20, 25);
@@ -196,97 +255,96 @@ public:
         addEdge("图书馆", "致远楼", 30, 40);
         addEdge("致远楼", "明善楼", 20, 25);
         addEdge("明善楼", "弘义楼", 35, 45);
+        addEdge("2A2B宿舍楼", "校门(北2)", 20, 25);
         
-        addPlace("北校门", {10, 20});
-		addPlace("弘义楼", {30, 25});
-		addPlace("致远楼", {50, 30});
-		addPlace("食堂", {20, 50});
-	    addPlace("体育场", {60, 60});
-		addPlace("医务室", {40, 45});
-		isRainMode = false;
-		avoidCongestMode = false;
-		    
+        classifyRoot = new ClassifyNode("校园总览");
+        ClassifyNode* gate = new ClassifyNode("校门区域");
+        ClassifyNode* teach = new ClassifyNode("教学楼");
+        ClassifyNode* dorm = new ClassifyNode("宿舍楼");
+        ClassifyNode* sport = new ClassifyNode("运动场地");
+
+        addClassifyChild(classifyRoot, gate);
+        addClassifyChild(classifyRoot, teach);
+        addClassifyChild(classifyRoot, dorm);
+        addClassifyChild(classifyRoot, sport);
+
+        addPlaceToClassify(gate, 0);
+        addPlaceToClassify(gate, 1);
+        addPlaceToClassify(teach, 2);
+        addPlaceToClassify(teach, 3);
+        addPlaceToClassify(dorm, 17);
+        addPlaceToClassify(dorm, 18);
+        addPlaceToClassify(sport, 14);   
     }
-    void addPlace(const string& name, Point p) {
-        if (placeCount < MAX_PLACES) {
-            campusPlaces[placeCount].name = name;
-            campusPlaces[placeCount].p = p;
-            campusPlaces[placeCount].id = placeCount;
-            adj[placeCount].edgeCount = 0;
-            placeCount++;
-            bstInsert(placeBSTRoot,name,placeCount);
-            placeCount++;
-        }
-    }
-    void addEdge(const string& from, const string& to, int dist, int t) {
-        int fromId = getPlaceIdByName(from);
-        int toId = getPlaceIdByName(to);
-        if (fromId == -1 || toId == -1) return;
-        if (adj[fromId].edgeCount < 20) {
-            adj[fromId].edges[adj[fromId].edgeCount++] = {toId, dist, t};
-        }
-        if (adj[toId].edgeCount < 20) {
-            adj[toId].edges[adj[toId].edgeCount++] = {fromId, dist, t};
-        }
-    }
+
     void queryCoordinateByName(const string& name) {
         int id = getPlaceIdByName(name);
         if (id != -1) {
             Point p = campusPlaces[id].p;
             cout << "地点：" << name << endl;
             cout << "坐标：(" << p.x << ", " << p.y << ")" << endl;
+            cout << "状态：";
+            if(campusPlaces[id].isExit) cout << "疏散出口 ";
+            if(campusPlaces[id].isDanger) cout << "危险区域";
+            cout << endl;
         } else {
             cout << "未找到该地点：" << name << endl;
         }
     }
+
     void listAllPlaces() {
         cout << "\n===== 校园所有地点列表 =====" << endl;
         for (int i = 0; i < placeCount; i++) {
-            cout << "- " << campusPlaces[i].name << endl;
+            cout << "- " << campusPlaces[i].name;
+            if(campusPlaces[i].isExit) cout << " 【疏散出口】";
+            if(campusPlaces[i].isDanger) cout << " 【危险区域】";
+            cout << endl;
         }
         cout << "===========================\n" << endl;
-}
-    void findFacilityByTree(){
-        string findName;
-        cout<<"\n====二叉树一键设施查询===="<<endl;
-        cout<<"请输入要查找的设施名称：";
-        getline(cin,findName);
-        int findId=bstSearch(placeBSTRoot,findName);
-        if(findId==-1){
-            cout<<"未查询到该设施！"<<endl;
-            return;
     }
-    Place res=campusPlaces[findId];
-    cout<<"【查找成功】设施名称："<<res.name<<endl;
-    cout<<"坐标：("<<res.p.x<<","<<res.p.y<<")"<<endl;
-    cout<<"内部编号："<<res.id<<endl;
-    cout<<"=========================\n";
-}
-  // 1. 遍历展示全部分类及下属设施
-     void showAllClassify() {
-         cout << "\n===== 校园设施分类索引（分类树遍历）=====" << endl;
-         traverseClassifyTree(classifyRoot, campusPlaces);
-         cout << "=======================================\n" << endl;
-     }
-     // 2. 根据分类名称检索该分类下所有设施
-     void searchByClassify() {
-         string clsName;
-         cout << "\n===== 按分类检索设施 =====" << endl;
-         cout << "请输入分类名称(校门区域/教学楼/宿舍楼/运动场地/餐饮区域/医疗办公)：";
-         getline(cin, clsName);
-         ClassifyNode* clsNode = searchClassify(classifyRoot, clsName);
-         if (clsNode == nullptr) {
-             cout << "不存在该分类！" << endl;
-             return;
-         }
-         cout << "【" << clsName << "】下的所有设施：" << endl;
-         for (int i = 0; i < clsNode->placeCnt; i++) {
-             int pid = clsNode->placeIds[i];
-             cout << "   · " << campusPlaces[pid].name
-                  << "  坐标(" << campusPlaces[pid].p.x << "," << campusPlaces[pid].p.y << ")" << endl;
-         }
-         cout << "==========================\n";
-     }
+
+    void findFacilityByTree() {
+        string findName;
+        cout << "\n====二叉树一键设施查询====" << endl;
+        cout << "请输入要查找的设施名称：";
+        getline(cin, findName);
+        int findId = bstSearch(placeBSTRoot, findName);
+        if (findId == -1) {
+            cout << "未查询到该设施！" << endl;
+            return;
+        }
+        Place res = campusPlaces[findId];
+        cout << "【查找成功】设施名称：" << res.name << endl;
+        cout << "坐标：(" << res.p.x << "," << res.p.y << ")" << endl;
+        cout << "内部编号：" << res.id << endl;
+        cout << "=========================\n";
+    }
+
+    void showAllClassify() {
+        cout << "\n===== 校园设施分类索引 =====" << endl;
+        traverseClassifyTree(classifyRoot, campusPlaces);
+        cout << "=======================================\n" << endl;
+    }
+
+    void searchByClassify() {
+        string clsName;
+        cout << "\n===== 按分类检索设施 =====" << endl;
+        cout << "请输入分类名称(校门区域/教学楼/宿舍楼/运动场地)：";
+        getline(cin, clsName);
+        ClassifyNode* clsNode = searchClassify(classifyRoot, clsName);
+        if (clsNode == nullptr) {
+            cout << "不存在该分类！" << endl;
+            return;
+        }
+        cout << "【" << clsName << "】下的所有设施：" << endl;
+        for (int i = 0; i < clsNode->placeCnt; i++) {
+            int pid = clsNode->placeIds[i];
+            cout << "   · " << campusPlaces[pid].name
+                 << "  坐标(" << campusPlaces[pid].p.x << "," << campusPlaces[pid].p.y << ")" << endl;
+        }
+        cout << "==========================\n";
+    }
+
     void queryShortestPath(const string& startName, const string& endName) {
         int startId = getPlaceIdByName(startName);
         int endId = getPlaceIdByName(endName);
@@ -299,20 +357,21 @@ public:
             return;
         }
         int totalCost[MAX_PLACES];
-        int dist[MAX_PLACES];    
+        int dist[MAX_PLACES];
         int timeCost[MAX_PLACES];
-        int prev[MAX_PLACES];    
+        int prev[MAX_PLACES];
         bool visited[MAX_PLACES] = {false};
 
         for (int i = 0; i < placeCount; i++) {
-            totalCost[i]=INT_MAX;
+            totalCost[i] = INT_MAX;
             dist[i] = INT_MAX;
             timeCost[i] = INT_MAX;
             prev[i] = -1;
         }
-        totalCost[startId]=0;
+        totalCost[startId] = 0;
         dist[startId] = 0;
         timeCost[startId] = 0;
+
         for (int i = 0; i < placeCount; i++) {
             int u = -1;
             int minDist = INT_MAX;
@@ -325,8 +384,7 @@ public:
             if (u == -1) break;
             visited[u] = true;
 
-            for (int k = 0; k < adj[u].edgeCount; ++k)
-            {
+            for (int k = 0; k < adj[u].edgeCount; ++k) {
                 Edge eg = adj[u].edges[k];
                 int v = eg.toId;
                 if (visited[v] || totalCost[u] == INT_MAX) continue;
@@ -335,8 +393,7 @@ public:
                     nowCost += CONGESTION_PENALTY[eg.congestionLevel];
                 if (isRainMode && !eg.isSheltered)
                     nowCost += RAIN_PENALTY;
-                if (totalCost[v] > totalCost[u] + nowCost)
-                {
+                if (totalCost[v] > totalCost[u] + nowCost) {
                     totalCost[v] = totalCost[u] + nowCost;
                     dist[v] = dist[u] + eg.distance;
                     timeCost[v] = totalCost[v];
@@ -365,7 +422,7 @@ public:
         cout << "\n";
         cout << "最短距离：" << dist[endId] << " 米" << endl;
         cout << "预计通过时间：" << timeCost[endId] << " 秒" << endl;
-        cout << "综合耗时(含避堵/避雨)："<< totalCost[endId] << " 秒\n";
+        cout << "综合耗时(含避堵/避雨)：" << totalCost[endId] << " 秒\n";
         cout << "路径：";
         while (!pathStack.isEmpty()) {
             int id = pathStack.pop();
@@ -374,31 +431,73 @@ public:
         }
         cout << "\n========================\n" << endl;
     }
-    
-        void destroyBST() {
-	        bstDestroy(placeBSTRoot);
-	    }
-	};
-	
-	const int CampusQuerySystem::CONGESTION_PENALTY[4] = {0, 10, 25, 50};
-	const int CampusQuerySystem::RAIN_PENALTY = 30;
-	
+
+    void planEvacuationRoute(const string& startName) {
+        int startId = getPlaceIdByName(startName);
+        if (startId == -1) {
+            cout << "当前位置不存在！" << endl;
+            return;
+        }
+        if(campusPlaces[startId].isExit){
+            cout << "当前位置已是疏散出口，无需撤离！" << endl;
+            return;
+        }
+
+        int exitId = -1;
+        int prev[MAX_PLACES];
+        bool hasPath = bfsEvacuate(startId, exitId, prev);
+
+        cout << "\n===== 校园最优疏散路线规划 =====" << endl;
+        cout << "当前位置：" << startName << endl;
+        if (!hasPath) {
+            cout << "警告：无法找到通往安全出口的路线！" << endl;
+            cout << "================================\n";
+            return;
+        }
+
+        Stack st;
+        int cur = exitId;
+        while (cur != -1) {
+            st.push(cur);
+            cur = prev[cur];
+        }
+
+        cout << "最近安全出口：" << campusPlaces[exitId].name << endl;
+        cout << "疏散路径：";
+        while (!st.isEmpty()) {
+            int id = st.pop();
+            cout << campusPlaces[id].name;
+            if (id != exitId) cout << " -> ";
+        }
+        cout << "\n提示：路线已自动避让危险区域！" << endl;
+        cout << "================================\n";
+    }
+
+    void destroyBST() {
+        bstDestroy(placeBSTRoot);
+    }
+};
+const int CampusQuerySystem::CONGESTION_PENALTY[4] = {0, 10, 25, 50};
+const int CampusQuerySystem::RAIN_PENALTY = 30;
+
 int main(){   
     CampusQuerySystem system;
     system.initCampus();
 
     int choice;
 	do{
-        cout << "\n===== 电子科技大学成都学院（什邡校区）地点查询系统 =====" << endl;
+        cout << "\n===== 校园地点查询&疏散导航系统 =====" << endl;
         cout << "1. 列出所有地点" << endl;
         cout << "2. 根据地点查询坐标" << endl;
         cout << "3. 查询两点间最短路径与预计时间" << endl;
-        cout << "4. 开始智能路径导航\n" <<endl;
-        cout<<"5.二叉树一键查找设施" <<endl;
+        cout << "4. 设置导航模式(雨天/避堵)" << endl;
+        cout << "5. 二叉树一键查找设施" << endl;
+        cout << "6. 分类树查看/检索设施" << endl;
+        cout << "7. 【新增】最优疏散路线规划(只有2A2B宿舍楼有，其余地点都没有)" << endl;
         cout << "0. 退出系统" << endl;
         cout << "请输入你的选择：";
         cin >> choice;
-        cin.ignore(); 
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
         switch (choice) {
         case 1:
@@ -435,6 +534,22 @@ int main(){
         case 5:
             system.findFacilityByTree();
             break;
+        case 6: {
+                int c;
+                cout << "1.查看全部分类  2.按分类检索\n请选择：";
+                cin >> c;
+                cin.ignore();
+                if(c == 1) system.showAllClassify();
+                else system.searchByClassify();
+                break;
+        }
+        case 7: { 
+            string pos;
+            cout << "请输入当前所在位置：";
+            getline(cin, pos);
+            system.planEvacuationRoute(pos);
+            break;
+        }
         case 0:
             cout << "退出系统，感谢使用！" << endl;
             break;
