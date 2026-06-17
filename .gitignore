@@ -1,115 +1,129 @@
 #include <iostream>
 #include <string>
 #include <climits>
-#include<limits>
+#include <limits>
+#include <queue>
+#include <cstring>
 using namespace std;
-const int MAX_PLACES=50;
+
+const int MAX_PLACES = 50;
 
 struct Point {
     int x;
     int y;
-    bool isExit;      
-    bool isDanger;
 };
+
 struct Place {
     string name;
     Point p;
-    int id; 
+    int id;
+    bool isExit;      
+    bool isDanger;
 };
+
 struct Edge {
     int toId;
-    int distance; 
-    int time; 
+    int distance;
+    int time;
     bool isSheltered;
     int congestionLevel;
     Edge() : toId(-1), distance(0), time(0), isSheltered(false), congestionLevel(0) {}
     Edge(int t, int d, int ti, bool sh = false, int con = 0)
         : toId(t), distance(d), time(ti), isSheltered(sh), congestionLevel(con) {}
 };
-struct BSTNode{
-    string name;   
-    int placeId;    
-    BSTNode *lchild,*rchild; 
-    BSTNode(string n,int id):name(n),placeId(id),lchild(nullptr),rchild(nullptr){}
+
+struct BSTNode {
+    string name;
+    int placeId;
+    BSTNode *lchild, *rchild;
+    BSTNode(string n, int id) : name(n), placeId(id), lchild(nullptr), rchild(nullptr) {}
 };
+
 const int MAX_CHILD = 10;
- struct ClassifyNode {
-     string className;
-     int placeIds[MAX_PLACES];
-     int placeCnt;
-     ClassifyNode* child[MAX_CHILD];
-     int childCnt;
-     ClassifyNode(string cName) : className(cName), placeCnt(0), childCnt(0) {
-         for (int i = 0; i < MAX_PLACES; i++) placeIds[i] = -1;
-         for (int i = 0; i < MAX_CHILD; i++) child[i] = nullptr;
-     }
- };
- void addClassifyChild(ClassifyNode* parent, ClassifyNode* childNode) {
-     if (parent->childCnt < MAX_CHILD) {
-         parent->child[parent->childCnt++] = childNode;
-     }
- }
- void addPlaceToClassify(ClassifyNode* node, int placeId) {
-     if (node->placeCnt < MAX_PLACES) {
-         node->placeIds[node->placeCnt++] = placeId;
-     }
- }
- void traverseClassifyTree(ClassifyNode* root, Place campusPlaces[]) {
-     if (root == nullptr) return;
-     cout << "【" << root->className << "】" << endl;
-     // 输出当前分类下的地点
-     for (int i = 0; i < root->placeCnt; i++) {
-         int pid = root->placeIds[i];
-         cout << "   · " << campusPlaces[pid].name << endl;
-     }
-     for (int i = 0; i < root->childCnt; i++) {
-         traverseClassifyTree(root->child[i], campusPlaces);
-     }
- }
- ClassifyNode* searchClassify(ClassifyNode* root, const string& clsName) {
-     if (root == nullptr) return nullptr;
-     if (root->className == clsName) return root;
-     for (int i = 0; i < root->childCnt; i++) {
-         ClassifyNode* res = searchClassify(root->child[i], clsName);
-         if (res != nullptr) return res;
-     }
-     return nullptr;
- }
- void destroyClassifyTree(ClassifyNode* root) {
-     if (root == nullptr) return;
-     for (int i = 0; i < root->childCnt; i++) {
-         destroyClassifyTree(root->child[i]);
-     }
-     delete root;
- }
-bool bstInsert(BSTNode* &root,const string &name,int pid){
-    if(root==nullptr){
-        root=new BSTNode(name,pid);
+struct ClassifyNode {
+    string className;
+    int placeIds[MAX_PLACES];
+    int placeCnt;
+    ClassifyNode* child[MAX_CHILD];
+    int childCnt;
+    ClassifyNode(string cName) : className(cName), placeCnt(0), childCnt(0) {
+        for (int i = 0; i < MAX_PLACES; i++) placeIds[i] = -1;
+        for (int i = 0; i < MAX_CHILD; i++) child[i] = nullptr;
+    }
+};
+void addClassifyChild(ClassifyNode* parent, ClassifyNode* childNode) {
+    if (parent->childCnt < MAX_CHILD) {
+        parent->child[parent->childCnt++] = childNode;
+    }
+}
+
+void addPlaceToClassify(ClassifyNode* node, int placeId) {
+    if (node->placeCnt < MAX_PLACES) {
+        node->placeIds[node->placeCnt++] = placeId;
+    }
+}
+
+void traverseClassifyTree(ClassifyNode* root, Place campusPlaces[]) {
+    if (root == nullptr) return;
+    cout << "【" << root->className << "】" << endl;
+    for (int i = 0; i < root->placeCnt; i++) {
+        int pid = root->placeIds[i];
+        if(pid != -1)
+            cout << "   · " << campusPlaces[pid].name << endl;
+    }
+    for (int i = 0; i < root->childCnt; i++) {
+        traverseClassifyTree(root->child[i], campusPlaces);
+    }
+}
+
+ClassifyNode* searchClassify(ClassifyNode* root, const string& clsName) {
+    if (root == nullptr) return nullptr;
+    if (root->className == clsName) return root;
+    for (int i = 0; i < root->childCnt; i++) {
+        ClassifyNode* res = searchClassify(root->child[i], clsName);
+        if (res != nullptr) return res;
+    }
+    return nullptr;
+}
+
+void destroyClassifyTree(ClassifyNode* root) {
+    if (root == nullptr) return;
+    for (int i = 0; i < root->childCnt; i++) {
+        destroyClassifyTree(root->child[i]);
+    }
+    delete root;
+}
+bool bstInsert(BSTNode* &root, const string &name, int pid) {
+    if (root == nullptr) {
+        root = new BSTNode(name, pid);
         return true;
     }
-    if(name==root->name) return false;
-    else if(name<root->name) bstInsert(root->lchild,name,pid);
-    else bstInsert(root->rchild,name,pid);
+    if (name == root->name) return false;
+    else if (name < root->name) bstInsert(root->lchild, name, pid);
+    else bstInsert(root->rchild, name, pid);
     return true;
 }
-int bstSearch(BSTNode* root,const string &key){
-    if(root==nullptr) return -1;
-    if(key==root->name) return root->placeId;
-    else if(key<root->name) return bstSearch(root->lchild,key);
-    else return bstSearch(root->rchild,key);
+
+int bstSearch(BSTNode* root, const string &key) {
+    if (root == nullptr) return -1;
+    if (key == root->name) return root->placeId;
+    else if (key < root->name) return bstSearch(root->lchild, key);
+    else return bstSearch(root->rchild, key);
 }
-void bstDestroy(BSTNode* &root){
-    if(root==nullptr)return;
+
+void bstDestroy(BSTNode* &root) {
+    if (root == nullptr) return;
     bstDestroy(root->lchild);
     bstDestroy(root->rchild);
     delete root;
-    root=nullptr;
+    root = nullptr;
 }
 struct AdjList {
     Edge edges[20];
     int edgeCount;
-    AdjList():edgeCount(0){}
+    AdjList() : edgeCount(0) {}
 };
+
 class Stack {
 private:
     int data[100];
@@ -117,23 +131,22 @@ private:
 public:
     Stack() : topIdx(-1) {}
     bool isEmpty() { return topIdx == -1; }
-    void push(int val) { if (topIdx < 49) data[++topIdx] = val; }
+    void push(int val) { if (topIdx < 99) data[++topIdx] = val; }
     int pop() { return data[topIdx--]; }
 };
 class CampusQuerySystem {
 private:
     static const int MAX_PLACES = 50;
     Place campusPlaces[MAX_PLACES];
-    AdjList adj[MAX_PLACES];
+    AdjList adj[MAX_PLACES];   
     int placeCount;
     ClassifyNode* classifyRoot;
-    BSTNode *placeBSTRoot;
+    BSTNode *placeBSTRoot;     
 
     static const int CONGESTION_PENALTY[4];
     static const int RAIN_PENALTY;
-    bool isRainMode;    
-    bool avoidCongestMode; 
-    BSTNode *placeBSTRoot; 
+    bool isRainMode;
+    bool avoidCongestMode;
 
     int getPlaceIdByName(const string& name) {
         for (int i = 0; i < placeCount; i++) {
@@ -185,12 +198,10 @@ public:
         destroyBST();
         destroyClassifyTree(classifyRoot);
     }
-
-	void setNavMode(bool rain, bool congest)
-	{
-	    isRainMode = rain;
-	    avoidCongestMode = congest;
-	}
+void setNavMode(bool rain, bool congest) {
+        isRainMode = rain;
+        avoidCongestMode = congest;
+    }
 
     void addPlace(const string& name, Point p, bool isExit = false, bool isDanger = false) {
         if (placeCount >= MAX_PLACES) return;
@@ -256,7 +267,7 @@ public:
         addEdge("致远楼", "明善楼", 20, 25);
         addEdge("明善楼", "弘义楼", 35, 45);
         addEdge("2A2B宿舍楼", "校门(北2)", 20, 25);
-        
+
         classifyRoot = new ClassifyNode("校园总览");
         ClassifyNode* gate = new ClassifyNode("校门区域");
         ClassifyNode* teach = new ClassifyNode("教学楼");
@@ -274,7 +285,7 @@ public:
         addPlaceToClassify(teach, 3);
         addPlaceToClassify(dorm, 17);
         addPlaceToClassify(dorm, 18);
-        addPlaceToClassify(sport, 14);   
+        addPlaceToClassify(sport, 14);
     }
 
     void queryCoordinateByName(const string& name) {
@@ -401,8 +412,7 @@ public:
                 }
             }
         }
-
-        if (dist[endId] == INT_MAX) {
+if (dist[endId] == INT_MAX) {
             cout << "两点之间无连通路径！" << endl;
             return;
         }
@@ -480,12 +490,12 @@ public:
 const int CampusQuerySystem::CONGESTION_PENALTY[4] = {0, 10, 25, 50};
 const int CampusQuerySystem::RAIN_PENALTY = 30;
 
-int main(){   
+int main() {
     CampusQuerySystem system;
     system.initCampus();
 
     int choice;
-	do{
+    do {
         cout << "\n===== 校园地点查询&疏散导航系统 =====" << endl;
         cout << "1. 列出所有地点" << endl;
         cout << "2. 根据地点查询坐标" << endl;
@@ -500,41 +510,40 @@ int main(){
         cin.ignore(numeric_limits<streamsize>::max(), '\n');
 
         switch (choice) {
-        case 1:
-            system.listAllPlaces();
-            break;
-        case 2: {
-            string name;
-            cout << "请输入地点名称：";
-            getline(cin, name);
-            system.queryCoordinateByName(name);
-            break;
-        }
-        case 3: {
-            string start, end;
-            cout << "请输入起点名称：";
-            getline(cin, start);
-            cout << "请输入终点名称：";
-            getline(cin, end);
-            system.queryShortestPath(start, end);
-            break;
-        }
-        case 4:
-        {
-            int rain, congest;
-            cout << "是否开启【雨天避雨】(0关闭 1开启)：";
-            cin >> rain;
-            cout << "是否开启【智能避堵】(0关闭 1开启)：";
-            cin >> congest;
-            cin.ignore(std::numeric_limits<streamsize>::max(), '\n');
-            system.setNavMode(rain == 1, congest == 1);
-            cout << "导航模式设置完成！\n";
-            break;
-        }
-        case 5:
-            system.findFacilityByTree();
-            break;
-        case 6: {
+            case 1:
+                system.listAllPlaces();
+                break;
+            case 2: {
+                string name;
+                cout << "请输入地点名称：";
+                getline(cin, name);
+                system.queryCoordinateByName(name);
+                break;
+            }
+            case 3: {
+                string start, end;
+                cout << "请输入起点名称：";
+                getline(cin, start);
+                cout << "请输入终点名称：";
+                getline(cin, end);
+                system.queryShortestPath(start, end);
+                break;
+            }
+            case 4: {
+                int rain, congest;
+                cout << "是否开启【雨天避雨】(0关闭 1开启)：";
+                cin >> rain;
+                cout << "是否开启【智能避堵】(0关闭 1开启)：";
+                cin >> congest;
+                cin.ignore(numeric_limits<streamsize>::max(), '\n');
+                system.setNavMode(rain == 1, congest == 1);
+                cout << "导航模式设置完成！\n";
+                break;
+            }
+            case 5:
+                system.findFacilityByTree();
+                break;
+            case 6: {
                 int c;
                 cout << "1.查看全部分类  2.按分类检索\n请选择：";
                 cin >> c;
@@ -542,21 +551,21 @@ int main(){
                 if(c == 1) system.showAllClassify();
                 else system.searchByClassify();
                 break;
+            }
+            case 7: { 
+                string pos;
+                cout << "请输入当前所在位置：";
+                getline(cin, pos);
+                system.planEvacuationRoute(pos);
+                break;
+            }
+            case 0:
+                cout << "退出系统，感谢使用！" << endl;
+                break;
+            default:
+                cout << "无效选择，请重新输入！" << endl;
         }
-        case 7: { 
-            string pos;
-            cout << "请输入当前所在位置：";
-            getline(cin, pos);
-            system.planEvacuationRoute(pos);
-            break;
-        }
-        case 0:
-            cout << "退出系统，感谢使用！" << endl;
-            break;
-        default:
-            cout << "无效选择，请重新输入！" << endl;
-        }
-    }while(choice !=0);
+    } while (choice != 0);
 
     return 0;
 }
